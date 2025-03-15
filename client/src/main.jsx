@@ -8,7 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
 
 // Configure axios defaults
-axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.baseURL = 'https://mathletes-backend.vercel.app';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // Add request interceptor to include auth token
