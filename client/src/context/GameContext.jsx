@@ -2,6 +2,9 @@ import React, { createContext, useState, useContext, useEffect, useRef } from 'r
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
+// Backend URL - same as in axios config
+const BACKEND_URL = 'https://mathletes-backend.onrender.com';
+
 const GameContext = createContext();
 
 export const useGame = () => useContext(GameContext);
@@ -27,15 +30,14 @@ export const GameProvider = ({ children }) => {
       socketInitialized.current = true;
       
       const token = localStorage.getItem('token');
-      // Use relative URL to work with Vite proxy
-      const newSocket = io('/', {
-        path: '/socket.io',
+      // Use direct backend URL instead of proxy
+      const newSocket = io(BACKEND_URL, {
         auth: { token },
         transports: ['websocket', 'polling'],
         withCredentials: true
       });
 
-      console.log('Initializing socket connection');
+      console.log('Initializing socket connection to:', BACKEND_URL);
       setSocket(newSocket);
 
       return () => {

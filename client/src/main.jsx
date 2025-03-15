@@ -7,8 +7,11 @@ import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
 
+// Backend URL
+const BACKEND_URL = 'https://mathletes-backend.onrender.com';
+
 // Configure axios defaults
-axios.defaults.baseURL = 'https://mathletes-backend.onrender.com';
+axios.defaults.baseURL = BACKEND_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // Add request interceptor to include auth token
