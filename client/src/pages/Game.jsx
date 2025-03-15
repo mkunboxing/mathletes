@@ -8,7 +8,7 @@ import GameActive from '../components/GameActive';
 import GameResult from '../components/GameResult';
 
 // Configure axios to use the correct base URL
-axios.defaults.baseURL = 'https://mathletes-backend.vercel.app';
+axios.defaults.baseURL = 'https://mathletes-backend.onrender.com';
 
 const Game = () => {
   const { gameId } = useParams();

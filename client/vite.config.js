@@ -7,12 +7,12 @@ module.exports = defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://mathletes-backend.vercel.app',
+        target: 'https://mathletes-backend.onrender.com',
         changeOrigin: true,
         secure: false
       },
       '/socket.io': {
-        target: 'https://mathletes-backend.vercel.app',
+        target: 'https://mathletes-backend.onrender.com',
         changeOrigin: true,
         secure: false,
         ws: true
