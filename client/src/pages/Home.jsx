@@ -10,7 +10,7 @@ const Home = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Math Game</h1>
+        <h1 className="text-4xl font-bold mb-4">Welcome to Mathletes</h1>
         <p className="text-xl text-gray-600">
           Test your math skills against other players in real-time!
         </p>
