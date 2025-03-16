@@ -78,6 +78,16 @@ export const GameProvider = ({ children }) => {
       console.log('Connected to socket server');
     };
 
+    const onReconnect = () => {
+      console.log('Reconnected to socket server');
+      
+      // If we were in a game before disconnecting, rejoin it
+      if (currentGame && currentGame.gameId) {
+        console.log(`Reconnected, rejoining game: ${currentGame.gameId}`);
+        socket.emit('join-game', { gameId: currentGame.gameId });
+      }
+    };
+
     const onDisconnect = (reason) => {
       console.log('Disconnected from socket server:', reason);
     };
@@ -111,7 +121,17 @@ export const GameProvider = ({ children }) => {
 
     const onPlayerLeft = ({ userId, message }) => {
       console.log('Player left:', userId, message);
-      setError(message);
+      
+      // Don't immediately end the game, just show a message
+      // The server will handle ending the game if the player doesn't reconnect
+      setError(`${message} - Waiting to see if they reconnect...`);
+      
+      // If the game is already completed, we can reset the error after a few seconds
+      if (gameStatus === 'completed') {
+        setTimeout(() => {
+          setError(null);
+        }, 5000);
+      }
     };
 
     const onError = ({ message }) => {
@@ -121,6 +141,7 @@ export const GameProvider = ({ children }) => {
 
     // Add event listeners
     socket.on('connect', onConnect);
+    socket.on('reconnect', onReconnect);
     socket.on('disconnect', onDisconnect);
     socket.on('game-update', onGameUpdate);
     socket.on('game-started', onGameStarted);
@@ -137,6 +158,7 @@ export const GameProvider = ({ children }) => {
     // Cleanup function
     return () => {
       socket.off('connect', onConnect);
+      socket.off('reconnect', onReconnect);
       socket.off('disconnect', onDisconnect);
       socket.off('game-update', onGameUpdate);
       socket.off('game-started', onGameStarted);
@@ -145,7 +167,7 @@ export const GameProvider = ({ children }) => {
       socket.off('player-left', onPlayerLeft);
       socket.off('error', onError);
     };
-  }, [socket]);
+  }, [socket, currentGame]);
 
   // Timer for countdown
   useEffect(() => {

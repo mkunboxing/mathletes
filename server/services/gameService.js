@@ -101,6 +101,20 @@ class GameService {
     try {
       console.log(`Processing answer submission for game ${gameId} from user ${userId}: ${answer}`);
       
+      // Check if this is a dummy answer (used for refreshing game state)
+      if (answer === '0' && userId) {
+        console.log(`Received dummy answer from ${userId} for game ${gameId}, treating as a refresh request`);
+        
+        // Find the game regardless of status
+        const game = await Game.findOne({ gameId });
+        if (!game) {
+          console.error(`Game not found: ${gameId}`);
+          throw new Error('Game not found');
+        }
+        
+        return game;
+      }
+      
       const game = await Game.findOne({ gameId, status: 'active' });
       if (!game) {
         console.error(`Active game not found: ${gameId}`);
@@ -197,9 +211,21 @@ class GameService {
   
   async endGame(gameId) {
     try {
-      const game = await Game.findOne({ gameId, status: 'active' });
-      if (!game) throw new Error('Active game not found');
+      console.log(`Attempting to end game: ${gameId}`);
       
+      const game = await Game.findOne({ gameId, status: 'active' });
+      if (!game) {
+        console.log(`No active game found with ID: ${gameId}, it may have already ended`);
+        // Try to find the game regardless of status to return it
+        const existingGame = await Game.findOne({ gameId });
+        if (existingGame) {
+          console.log(`Found game with ID: ${gameId} in status: ${existingGame.status}`);
+          return existingGame;
+        }
+        throw new Error('Game not found');
+      }
+      
+      console.log(`Ending active game: ${gameId}`);
       game.status = 'completed';
       
       // Determine winner
@@ -239,8 +265,10 @@ class GameService {
       }
       
       await game.save();
+      console.log(`Game ${gameId} successfully ended`);
       return game;
     } catch (error) {
+      console.error(`Error in endGame for game ${gameId}:`, error);
       throw error;
     }
   }

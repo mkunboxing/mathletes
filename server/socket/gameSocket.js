@@ -42,6 +42,14 @@ function initializeSocket(server) {
         socket.join(gameId);
         console.log(`User ${socket.userId} joined socket room for game: ${gameId}`);
         
+        // Clear any disconnection timer for this user and game
+        const timerKey = `${socket.userId}_${gameId}`;
+        if (global.disconnectionTimers && global.disconnectionTimers[timerKey]) {
+          console.log(`Clearing reconnection timer for user ${socket.userId} in game ${gameId}`);
+          clearTimeout(global.disconnectionTimers[timerKey]);
+          delete global.disconnectionTimers[timerKey];
+        }
+        
         // If player is not creator, add them to the game
         const game = await Game.findOne({ gameId });
         
@@ -113,8 +121,20 @@ function initializeSocket(server) {
         // Set up timer for game end
         const timeRemaining = game.endedAt - new Date();
         setTimeout(async () => {
-          const endedGame = await gameService.endGame(gameId);
-          io.to(gameId).emit('game-ended', endedGame);
+          try {
+            // Check if the game is still active before ending it
+            const currentGame = await Game.findOne({ gameId, status: 'active' });
+            if (currentGame) {
+              console.log(`Game time expired for ${gameId}, ending game`);
+              const endedGame = await gameService.endGame(gameId);
+              io.to(gameId).emit('game-ended', endedGame);
+            } else {
+              console.log(`Game ${gameId} is no longer active, skipping end game timer`);
+            }
+          } catch (error) {
+            console.error(`Error in game end timer for ${gameId}:`, error);
+            io.to(gameId).emit('error', { message: 'Error ending game' });
+          }
         }, timeRemaining);
       } catch (error) {
         console.error(`Error starting game ${gameId}:`, error);
@@ -150,6 +170,7 @@ function initializeSocket(server) {
     // Find random opponent
     socket.on('find-random-opponent', async () => {
       try {
+        console.log(`User ${socket.userId} is looking for a random opponent`);
         // Add user to waiting queue
         const matchResult = gameService.addToWaitingQueue(socket.userId, socket.id, socket.username);
         
@@ -157,8 +178,12 @@ function initializeSocket(server) {
         if (matchResult) {
           const { player1, player2 } = matchResult;
           
+          console.log(`Match found between ${player1.username} and ${player2.username}`);
+          
           // Create a new game for the matched players
           const game = await gameService.createRandomGame(player1, player2);
+          
+          console.log(`Random match game created: ${game.gameId}`);
           
           // Notify both players about the match
           io.to(player1.socketId).emit('random-match-found', {
@@ -198,8 +223,20 @@ function initializeSocket(server) {
               // Set up timer for game end
               const timeRemaining = startedGame.endedAt - new Date();
               setTimeout(async () => {
-                const endedGame = await gameService.endGame(game.gameId);
-                io.to(game.gameId).emit('game-ended', endedGame);
+                try {
+                  // Check if the game is still active before ending it
+                  const currentGame = await Game.findOne({ gameId: game.gameId, status: 'active' });
+                  if (currentGame) {
+                    console.log(`Game time expired for random match ${game.gameId}, ending game`);
+                    const endedGame = await gameService.endGame(game.gameId);
+                    io.to(game.gameId).emit('game-ended', endedGame);
+                  } else {
+                    console.log(`Random match ${game.gameId} is no longer active, skipping end game timer`);
+                  }
+                } catch (error) {
+                  console.error(`Error in random match end timer for ${game.gameId}:`, error);
+                  io.to(game.gameId).emit('error', { message: 'Error ending game' });
+                }
               }, timeRemaining);
             } catch (error) {
               console.error(`Error starting random match game ${game.gameId}:`, error);
@@ -208,17 +245,20 @@ function initializeSocket(server) {
           }, 3000); // 3 seconds countdown
         } else {
           // No match yet, notify the user they're in queue
+          console.log(`User ${socket.userId} added to waiting queue`);
           socket.emit('waiting-for-opponent', {
             queueSize: gameService.getWaitingQueueSize()
           });
         }
       } catch (error) {
+        console.error(`Error finding random opponent:`, error);
         socket.emit('error', { message: error.message });
       }
     });
     
     // Cancel finding random opponent
     socket.on('cancel-find-opponent', () => {
+      console.log(`User ${socket.userId} cancelled finding random opponent`);
       gameService.removeFromWaitingQueue(socket.userId);
       socket.emit('find-opponent-cancelled');
     });
@@ -231,18 +271,57 @@ function initializeSocket(server) {
       gameService.removeFromWaitingQueue(socket.userId);
       
       // Find any active games where this user is a player
-      const activeGames = await Game.find({
-        'players.userId': socket.userId,
-        status: 'active'
-      });
-      
-      // End any active games if a player leaves
-      for (const game of activeGames) {
-        await gameService.endGame(game.gameId);
-        io.to(game.gameId).emit('player-left', {
-          userId: socket.userId,
-          message: 'Opponent has left the game'
+      try {
+        const activeGames = await Game.find({
+          'players.userId': socket.userId,
+          status: 'active'
         });
+        
+        // For each active game, set a timeout before ending it
+        // This gives the user a chance to reconnect (e.g., after a page refresh)
+        for (const game of activeGames) {
+          console.log(`User ${socket.userId} disconnected from active game ${game.gameId}. Setting reconnection timer.`);
+          
+          // Store the disconnection timer in a global map using the userId and gameId as a key
+          const timerKey = `${socket.userId}_${game.gameId}`;
+          
+          // Clear any existing timer for this user and game
+          if (global.disconnectionTimers && global.disconnectionTimers[timerKey]) {
+            clearTimeout(global.disconnectionTimers[timerKey]);
+          }
+          
+          // Initialize the global timer map if it doesn't exist
+          if (!global.disconnectionTimers) {
+            global.disconnectionTimers = {};
+          }
+          
+          // Set a new timer - give the user 10 seconds to reconnect
+          global.disconnectionTimers[timerKey] = setTimeout(async () => {
+            try {
+              // Check if the game is still active before ending it
+              const currentGame = await Game.findOne({
+                gameId: game.gameId,
+                status: 'active'
+              });
+              
+              if (currentGame) {
+                console.log(`User ${socket.userId} did not reconnect to game ${game.gameId} within the time limit. Ending game.`);
+                await gameService.endGame(game.gameId);
+                io.to(game.gameId).emit('player-left', {
+                  userId: socket.userId,
+                  message: 'Opponent has left the game'
+                });
+              }
+              
+              // Clean up the timer reference
+              delete global.disconnectionTimers[timerKey];
+            } catch (error) {
+              console.error(`Error ending game ${game.gameId} after disconnect timeout:`, error);
+            }
+          }, 10000); // 10 seconds reconnection window
+        }
+      } catch (error) {
+        console.error(`Error handling disconnect for user ${socket.userId}:`, error);
       }
     });
   });

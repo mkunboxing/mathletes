@@ -32,7 +32,13 @@ const Game = () => {
   // Reset game state on component mount
   useEffect(() => {
     console.log('Game component mounted, resetting game state');
-    resetGame();
+    // Only reset the game state if we're not coming from a refresh
+    // We can check this by seeing if there's a gameId in the URL
+    if (!gameId) {
+      resetGame();
+    } else {
+      console.log('Game component mounted with gameId, preserving state');
+    }
   }, []);
 
   // Fetch game data
