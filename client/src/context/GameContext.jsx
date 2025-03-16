@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 // Backend URL - same as in axios config
-const BACKEND_URL = 'https://mathletes-backend.onrender.com';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const GameContext = createContext();
 
@@ -34,11 +34,31 @@ export const GameProvider = ({ children }) => {
       const newSocket = io(BACKEND_URL, {
         auth: { token },
         transports: ['websocket', 'polling'],
-        withCredentials: true
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
       });
 
       console.log('Initializing socket connection to:', BACKEND_URL);
       setSocket(newSocket);
+
+      // Handle reconnection
+      newSocket.on('reconnect', (attemptNumber) => {
+        console.log(`Socket reconnected after ${attemptNumber} attempts`);
+      });
+
+      newSocket.on('reconnect_attempt', (attemptNumber) => {
+        console.log(`Socket reconnection attempt ${attemptNumber}`);
+      });
+
+      newSocket.on('reconnect_error', (error) => {
+        console.error('Socket reconnection error:', error);
+      });
+
+      newSocket.on('reconnect_failed', () => {
+        console.error('Socket reconnection failed');
+      });
 
       return () => {
         if (newSocket) {
@@ -70,14 +90,14 @@ export const GameProvider = ({ children }) => {
     };
 
     const onGameStarted = ({ problem, endTime }) => {
-      console.log('Game started:', problem, endTime);
+      console.log('Game started event received:', { problem, endTime });
       setCurrentProblem(problem);
       setGameStatus('active');
       setEndTime(new Date(endTime));
     };
 
     const onProblemUpdate = ({ problem, players }) => {
-      console.log('Problem update:', problem);
+      console.log('Problem update event received:', { problem, players });
       setCurrentProblem(problem);
       setPlayers(players);
     };
@@ -108,6 +128,11 @@ export const GameProvider = ({ children }) => {
     socket.on('game-ended', onGameEnded);
     socket.on('player-left', onPlayerLeft);
     socket.on('error', onError);
+
+    // Log when joining a socket room
+    socket.on('joined-room', (data) => {
+      console.log('Joined room:', data);
+    });
 
     // Cleanup function
     return () => {
@@ -145,6 +170,13 @@ export const GameProvider = ({ children }) => {
       console.error('Socket not initialized');
       return;
     }
+    
+    if (!socket.connected) {
+      console.error('Socket not connected');
+      // Try to reconnect
+      socket.connect();
+    }
+    
     console.log('Joining game:', gameId);
     socket.emit('join-game', { gameId });
   };
@@ -154,6 +186,13 @@ export const GameProvider = ({ children }) => {
       console.error('Socket not initialized');
       return;
     }
+    
+    if (!socket.connected) {
+      console.error('Socket not connected');
+      // Try to reconnect
+      socket.connect();
+    }
+    
     console.log('Starting game:', gameId);
     socket.emit('start-game', { gameId });
   };
@@ -163,6 +202,13 @@ export const GameProvider = ({ children }) => {
       console.error('Socket not initialized');
       return;
     }
+    
+    if (!socket.connected) {
+      console.error('Socket not connected');
+      // Try to reconnect
+      socket.connect();
+    }
+    
     console.log('Submitting answer:', gameId, answer);
     socket.emit('submit-answer', { gameId, answer });
   };
@@ -186,6 +232,7 @@ export const GameProvider = ({ children }) => {
       players,
       timeRemaining,
       error,
+      socket,
       joinGame,
       startGame,
       submitAnswer,

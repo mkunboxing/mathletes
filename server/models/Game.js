@@ -33,6 +33,10 @@ const GameSchema = new mongoose.Schema({
     enum: ['waiting', 'active', 'completed'],
     default: 'waiting'
   },
+  isRandomMatch: {
+    type: Boolean,
+    default: false
+  },
   winner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

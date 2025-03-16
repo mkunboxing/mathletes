@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,6 +14,29 @@ const GameActive = ({ gameId }) => {
     timeRemaining,
     submitAnswer
   } = useGame();
+
+  // Debug: Log when currentProblem changes
+  useEffect(() => {
+    console.log('GameActive - currentProblem changed:', currentProblem);
+  }, [currentProblem]);
+
+  // Add a retry mechanism to fetch the problem if it's not available
+  useEffect(() => {
+    if (!currentProblem && gameId) {
+      console.log('GameActive - No problem available, checking game status');
+      
+      // If we've been waiting for more than 5 seconds, try to rejoin the game
+      const timer = setTimeout(() => {
+        if (!currentProblem) {
+          console.log('GameActive - Still no problem after timeout, trying to refresh game state');
+          // This will trigger the socket to emit a game-update event
+          submitAnswer(gameId, '0'); // Send a dummy answer to trigger a refresh
+        }
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentProblem, gameId, submitAnswer]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -69,6 +92,7 @@ const GameActive = ({ gameId }) => {
   };
 
   if (!currentProblem) {
+    console.log('GameActive - No current problem available');
     return (
       <div className="card text-center">
         <h2 className="text-2xl font-bold mb-4">Loading problem...</h2>

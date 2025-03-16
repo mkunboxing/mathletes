@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import RandomMatchmaking from '../components/RandomMatchmaking';
 
 const Home = () => {
   const { isAuthenticated, user } = useAuth();
+  const [showRandomMatch, setShowRandomMatch] = useState(false);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -13,6 +15,41 @@ const Home = () => {
           Test your math skills against other players in real-time!
         </p>
       </div>
+
+      {isAuthenticated && (
+        <div className="mb-8">
+          <div className="flex justify-center space-x-4">
+            <button 
+              onClick={() => setShowRandomMatch(false)}
+              className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${!showRandomMatch ? 'bg-white text-blue-600 border-t border-l border-r border-gray-200' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Create Custom Game
+            </button>
+            <button 
+              onClick={() => setShowRandomMatch(true)}
+              className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${showRandomMatch ? 'bg-white text-blue-600 border-t border-l border-r border-gray-200' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Quick Match
+            </button>
+          </div>
+          
+          <div className="bg-white rounded-b-lg rounded-tr-lg shadow-md p-6 border border-gray-200">
+            {showRandomMatch ? (
+              <RandomMatchmaking />
+            ) : (
+              <div>
+                <h2 className="text-2xl font-bold mb-4 text-center">Create Custom Game</h2>
+                <p className="mb-6 text-gray-700">
+                  Create a new game, set the time limit, and challenge your friends to a math duel!
+                </p>
+                <Link to="/create-game" className="btn btn-primary block text-center">
+                  Create New Game
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="card">
@@ -31,26 +68,16 @@ const Home = () => {
         <div className="card">
           {isAuthenticated ? (
             <div>
-              <h2 className="text-2xl font-bold mb-4">Ready to Play?</h2>
-              <p className="mb-6 text-gray-700">
-                Create a new game and challenge your friends to a math duel!
-              </p>
-              <Link to="/create-game" className="btn btn-primary block text-center">
-                Create New Game
-              </Link>
-              
+              <h2 className="text-2xl font-bold mb-4">Your Stats</h2>
               {user && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-2">Your Stats</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-100 p-4 rounded-lg text-center">
-                      <p className="text-gray-600">Games Played</p>
-                      <p className="text-2xl font-bold">{user.gamesPlayed || 0}</p>
-                    </div>
-                    <div className="bg-gray-100 p-4 rounded-lg text-center">
-                      <p className="text-gray-600">Games Won</p>
-                      <p className="text-2xl font-bold">{user.gamesWon || 0}</p>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-100 p-4 rounded-lg text-center">
+                    <p className="text-gray-600">Games Played</p>
+                    <p className="text-2xl font-bold">{user.gamesPlayed || 0}</p>
+                  </div>
+                  <div className="bg-gray-100 p-4 rounded-lg text-center">
+                    <p className="text-gray-600">Games Won</p>
+                    <p className="text-2xl font-bold">{user.gamesWon || 0}</p>
                   </div>
                 </div>
               )}

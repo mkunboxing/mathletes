@@ -8,7 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
 
 // Backend URL
-const BACKEND_URL = 'https://mathletes-backend.onrender.com';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Configure axios defaults
 axios.defaults.baseURL = BACKEND_URL;
